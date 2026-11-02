@@ -2,6 +2,8 @@
 
 Implementación del integrante 1, basada en la consigna 01 y en el contrato de `PLAN_MODULOS.md`.
 
+La placa del equipo tiene DHT11: la configuración actual usa `DHT_TIPO = DHT11`. La consigna describe DHT22; confirmar con la cátedra la adaptación a la placa disponible. Para cambiar de modelo, modificar únicamente `DHT_TIPO` en `Config.h`.
+
 ## Archivos y responsabilidad
 
 | Archivo | Contenido |
@@ -23,7 +25,7 @@ Sensores::actualizar(millis());
 const Mediciones mediciones = Sensores::obtenerMediciones();
 ```
 
-- `iniciar()` configura DHT22 en GPIO 33, potenciómetro en GPIO 32, resolución ADC de 12 bits y atenuación de 11 dB para ese pin. Descarta las mediciones anteriores y reinicia los temporizadores. Llamar desde `setup()`.
+- `iniciar()` configura el modelo DHT elegido en GPIO 33 (actualmente DHT11), potenciómetro en GPIO 32, resolución ADC de 12 bits y atenuación de 11 dB para ese pin. Descarta las mediciones anteriores y reinicia los temporizadores. Llamar desde `setup()`.
 - `actualizar(unsigned long ahoraMs)` recibe una captura reciente de `millis()`, posterior a `iniciar()`. Lee el potenciómetro inmediatamente en la primera llamada y luego cada 100 ms como mínimo. Lee el DHT por primera vez después de 2000 ms desde la inicialización y luego cada 2000 ms como mínimo. No usa `delay()` ni espera a que venza un intervalo.
 - `obtenerMediciones()` devuelve una copia del último estado. No lee hardware ni afecta los intervalos.
 
@@ -52,7 +54,7 @@ El ADC crudo y los milivoltios se obtienen con dos conversiones consecutivas, co
 ## Integración realizada en el sketch
 
 1. Se reemplazó el `#include <DHT.h>` por `#include "Sensores.h"`.
-2. Se retiraron del `.ino` los pines de sensores y el objeto DHT. Se corrigió el tipo DHT11 a DHT22 en `Config.h`.
+2. Se retiraron del `.ino` los pines de sensores y el objeto DHT. El modelo se elige en `Config.h`; actualmente DHT11 para coincidir con la placa del equipo.
 3. `setup()` llama a `Sensores::iniciar()`.
 4. `loop()` actualiza el módulo y copia su instantánea a las variables que aún usan Telegram, OLED y ThingSpeak.
 5. Se retiró el `delay(1000)` del lazo para permitir el muestreo del potenciómetro cada 100 ms. El diagnóstico serie conserva un intervalo de un segundo.
@@ -76,7 +78,7 @@ Casos cubiertos: estado inicial, espera inicial DHT, primera lectura inmediata d
 
 ## Verificación pendiente en hardware
 
-- Conectar DHT22 y potenciómetro en los GPIO definidos y compilar con DHT sensor library de Adafruit.
+- Conectar el DHT11 de la placa y el potenciómetro en los GPIO definidos y compilar con DHT sensor library de Adafruit. Si se prueba otro modelo, ajustar antes `DHT_TIPO`.
 - Para Arduino IDE, abrir un sketch cuya carpeta tenga el mismo nombre que su `.ino`; copiar junto a él `Sensores.h`, `Sensores.cpp`, `Tipos.h` y `Config.h`. Mantener también las dependencias externas del sketch completo.
 - Confirmar lecturas reales de temperatura/humedad y recorrer el potenciómetro de extremo a extremo, comparando voltaje con una referencia física.
 - Desconectar el DHT: debe informarse lectura inválida mientras el potenciómetro sigue funcionando. Reconectar y verificar recuperación.

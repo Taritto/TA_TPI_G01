@@ -8,6 +8,8 @@ Este documento define una arquitectura propuesta para repartir el trabajo entre 
 
 Actualización: en la rama `libreria/sensores` ya se implementó Sensores con sus tres funciones, el tipo `Mediciones`, la configuración mínima de sensores y la adaptación del `.ino`. Ver `SENSORES.md` para el estado y las pruebas. Las demás interfaces de este plan siguen pendientes.
 
+Adaptación de hardware: el equipo confirmó que su placa tiene DHT11 y cambió `DHT_TIPO` a ese modelo. Las menciones a DHT22 de este plan describen el enunciado original; para la placa disponible se usa DHT11. La aceptación de esa adaptación debe confirmarse con la cátedra.
+
 Se toma como referencia la **consigna 01**, porque `tpTA.ino` implementa umbral, modo automático e historial de tres comandos. La consigna 02 tiene requisitos diferentes; no se agregan botones inline, relé temporizado ni alertas por voltaje a este plan. Confirmar con la cátedra qué enunciado corresponde antes de cerrar la entrega.
 
 Fuentes revisadas: `tpTA.ino` del repositorio y los documentos `TA4k01-TPI - 01.pdf` y `TA4k01-TPI - 02.pdf`. Las decisiones de arquitectura de este documento son propuestas del equipo, no exigencias textuales del enunciado.

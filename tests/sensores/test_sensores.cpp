@@ -41,7 +41,7 @@ uint32_t analogReadMilliVolts(uint8_t pin) {
   ++lecturasMv;
   return mv;
 }
-DHT::DHT(uint8_t pin, uint8_t tipo) { assert(pin == 33 && tipo == DHT22); }
+DHT::DHT(uint8_t pin, uint8_t tipo) { assert(pin == 33 && tipo == DHT_TIPO); }
 void DHT::begin() {}
 float DHT::readTemperature() { ++lecturasDht; return temperatura; }
 float DHT::readHumidity() { return humedad; }

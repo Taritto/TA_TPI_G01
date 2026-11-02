@@ -13,7 +13,7 @@ unsigned long ultimoIntentoPotMs = 0;
 bool primeraLecturaPot = true;
 
 static_assert(INTERVALO_DHT_MS >= 2000UL,
-              "El DHT22 requiere al menos 2000 ms entre lecturas");
+              "La biblioteca DHT requiere al menos 2000 ms entre lecturas");
 static_assert(INTERVALO_POT_MS > 0UL,
               "El intervalo del potenciometro debe ser positivo");
 

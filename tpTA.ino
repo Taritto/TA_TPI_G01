@@ -172,7 +172,7 @@ void loop() {
       Serial.print(humedad);
       Serial.println(" %");
     } else {
-      Serial.println("DHT22: sin lectura valida");
+      Serial.println("DHT: sin lectura valida");
     }
     if (mediciones.potenciometroValido) {
       Serial.print("Lectura ADC: ");
