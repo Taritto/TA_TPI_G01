@@ -7,7 +7,7 @@
 // 1. INCLUSION DE LIBRERIAS
 // ======================================================
 
-#include <DHT.h>
+#include "Sensores.h"
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -39,13 +39,6 @@ void consultarTelegram();
 // 2. CONFIGURACION DE PINES
 // ======================================================
 
-// Sensor DHT22 / DHT11
-#define DHT_PIN 33
-#define DHT_TYPE DHT11
-
-// Potenciometro
-#define POT_PIN 32
-
 // LEDs
 #define LED_VERDE 23
 #define LED_AZUL 2
@@ -62,18 +55,19 @@ void consultarTelegram();
 // 3. DECLARACION DE OBJETOS
 // ======================================================
 
-DHT dht(DHT_PIN, DHT_TYPE);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // ======================================================
 // 4. VARIABLES GLOBALES
 // ======================================================
 
-float temperatura = 0.0;
-float humedad = 0.0;
+// Adaptador temporal para los consumidores existentes. Solo Sensores lee
+// hardware; estas copias se reemplazaran al integrar los demas modulos.
+float temperatura = NAN;
+float humedad = NAN;
 
 int lecturaPotenciometro = 0;
-float voltajePotenciometro = 0.0;
+float voltajePotenciometro = NAN;
 
 // Variables de control de actuadores
 bool estadoLedVerde = false;
@@ -119,7 +113,7 @@ void setup() {
   digitalWrite(LED_VERDE, LOW);
   digitalWrite(LED_AZUL, LOW);
 
-  dht.begin();
+  Sensores::iniciar();
   Wire.begin(OLED_SDA, OLED_SCL);
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -158,32 +152,38 @@ void setup() {
 // ======================================================
 
 void loop() {
-  // LECTURA DEL SENSOR DHT
-  temperatura = dht.readTemperature();
-  humedad = dht.readHumidity();
+  Sensores::actualizar(millis());
+  const Mediciones mediciones = Sensores::obtenerMediciones();
+  temperatura = mediciones.temperaturaC;
+  humedad = mediciones.humedadPorcentaje;
+  lecturaPotenciometro = mediciones.potenciometroADC;
+  voltajePotenciometro = mediciones.potenciometroV;
 
-  if (isnan(temperatura) || isnan(humedad)) {
-    Serial.println("Error al leer el sensor DHT");
-  } else {
-    Serial.print("Temperatura: ");
-    Serial.print(temperatura);
-    Serial.println(" °C");
-
-    Serial.print("Humedad: ");
-    Serial.print(humedad);
-    Serial.println(" %");
+  // Diagnostico cada segundo, sin frenar el muestreo del potenciometro.
+  static unsigned long ultimoDiagnosticoMs = 0;
+  const unsigned long ahoraMs = millis();
+  if (ahoraMs - ultimoDiagnosticoMs >= 1000UL) {
+    ultimoDiagnosticoMs = ahoraMs;
+    if (mediciones.dhtValido) {
+      Serial.print("Temperatura: ");
+      Serial.print(temperatura);
+      Serial.println(" °C");
+      Serial.print("Humedad: ");
+      Serial.print(humedad);
+      Serial.println(" %");
+    } else {
+      Serial.println("DHT22: sin lectura valida");
+    }
+    if (mediciones.potenciometroValido) {
+      Serial.print("Lectura ADC: ");
+      Serial.println(lecturaPotenciometro);
+      Serial.print("Voltaje potenciometro: ");
+      Serial.print(voltajePotenciometro);
+      Serial.println(" V");
+    } else {
+      Serial.println("Potenciometro: sin lectura valida");
+    }
   }
-
-  // LECTURA DEL POTENCIOMETRO
-  lecturaPotenciometro = analogRead(POT_PIN);
-  int voltajeMilivoltios = analogReadMilliVolts(POT_PIN);
-  voltajePotenciometro = voltajeMilivoltios / 1000.0;
-
-  Serial.print("Lectura ADC: ");
-  Serial.println(lecturaPotenciometro);
-  Serial.print("Voltaje potenciometro: ");
-  Serial.print(voltajePotenciometro);
-  Serial.println(" V");
 
   // PROCESAMIENTO DE COMANDOS
   procesarComandoSerie();
@@ -194,8 +194,6 @@ void loop() {
   // CONSULTAR TELEGRAM
   consultarTelegram();
 
-  Serial.println("--------------------------------");
-  delay(1000);
 }
 
 // ======================================================
@@ -249,7 +247,12 @@ void desactivarModoAutomatico() {
 void controlarModoAutomatico() {
   if (modoAutomatico) {
     float limite = lineaBase + umbral;
-    if (voltajePotenciometro > limite) {
+    bool debeEncender = voltajePotenciometro > limite;
+    // El loop ya no espera un segundo: escribir y anunciar solo los cambios.
+    if (debeEncender == estadoLedAzul) {
+      return;
+    }
+    if (debeEncender) {
       encenderLedAzul();
     } else {
       apagarLedAzul();
