@@ -1,4 +1,0 @@
-[wokwi]
-version = 1
-firmware = "../../build/PruebaPantalla.ino.bin"
-elf = "../../build/PruebaPantalla.ino.elf"

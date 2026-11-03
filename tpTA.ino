@@ -8,9 +8,7 @@
 // ======================================================
 
 #include <DHT.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include "Pantalla.h"
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
@@ -29,9 +27,8 @@ void activarModoAutomatico();
 void desactivarModoAutomatico();
 void controlarModoAutomatico();
 void procesarComandoSerie();
-void mostrarEstadoLed();
-void mostrarEstadoPot();
-void mostrarEstadoDHT();
+void actualizarPantalla();
+bool enviarDatosThingSpeak();
 void procesarMensajesTelegram(int cantidadMensajes);
 void consultarTelegram();
 
@@ -50,20 +47,11 @@ void consultarTelegram();
 #define LED_VERDE 23
 #define LED_AZUL 2
 
-// Display OLED
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_RESET -1
-
-#define OLED_SDA 21
-#define OLED_SCL 22
-
 // ======================================================
 // 3. DECLARACION DE OBJETOS
 // ======================================================
 
 DHT dht(DHT_PIN, DHT_TYPE);
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // ======================================================
 // 4. VARIABLES GLOBALES
@@ -96,9 +84,6 @@ UniversalTelegramBot bot(BOT_TOKEN, clienteTelegram);
 unsigned long tiempoUltimaConsulta = 0;
 const unsigned long INTERVALO_TELEGRAM = 1000;
 
-// Historial de los ultimos 3 comandos de Telegram
-String historialComandos[3] = {"Sin comandos", "Sin comandos", "Sin comandos"};
-
 // CONFIGURACION THINGSPEAK
 const char* THINGSPEAK_API_KEY = "NAAK139LTSLRUOGD";
 const char* THINGSPEAK_SERVER = "http://api.thingspeak.com/update";
@@ -120,25 +105,9 @@ void setup() {
   digitalWrite(LED_AZUL, LOW);
 
   dht.begin();
-  Wire.begin(OLED_SDA, OLED_SCL);
-
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println("Error al inicializar el display OLED");
-    while (true) {
-      delay(100);
-    }
+  if (!Pantalla::iniciar()) {
+    Serial.println("OLED no disponible; el sistema continua");
   }
-
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-
-  display.println("Sistema ESP32");
-  display.println("TA 4K01");
-  display.println();
-  display.println("Inicializando...");
-  display.display();
 
   conectarWiFi();
 
@@ -193,6 +162,7 @@ void loop() {
 
   // CONSULTAR TELEGRAM
   consultarTelegram();
+  actualizarPantalla();
 
   Serial.println("--------------------------------");
   delay(1000);
@@ -278,12 +248,13 @@ void procesarComandoSerie() {
     } else if (comando == "autooff") {
       desactivarModoAutomatico();
     } else if (comando == "displayled") {
-      mostrarEstadoLed();
+      Pantalla::seleccionarVista(VistaPantalla::Leds);
     } else if (comando == "displaypot") {
-      mostrarEstadoPot();
+      Pantalla::seleccionarVista(VistaPantalla::Potenciometro);
     } else if (comando == "displaydht") {
-      mostrarEstadoDHT();
+      Pantalla::seleccionarVista(VistaPantalla::Dht);
     } else {
+      if (comando.startsWith("display")) Pantalla::mostrarErrorComando(comando);
       Serial.println("Comando no reconocido");
     }
   }
@@ -293,56 +264,26 @@ void procesarComandoSerie() {
 // PANTALLA OLED
 // ======================================================
 
-void mostrarEstadoLed() {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.println("ESTADO DE LOS LEDS");
-  display.println("------------------");
-  display.print("LED Verde: ");
-  display.println(estadoLedVerde ? "ON" : "OFF");
-  display.print("LED Azul: ");
-  display.println(estadoLedAzul ? "ON" : "OFF");
+// Adaptador temporal: el modulo recibe instantaneas, no accede a globales.
+// Al integrar Sensores/Actuadores, pasar directamente sus resultados.
+void actualizarPantalla() {
+  Mediciones mediciones;
+  mediciones.temperaturaC = temperatura;
+  mediciones.humedadPorcentaje = humedad;
+  mediciones.potenciometroADC = lecturaPotenciometro;
+  mediciones.potenciometroV = voltajePotenciometro;
+  mediciones.dhtValido = isfinite(temperatura) && isfinite(humedad);
+  mediciones.potenciometroValido = isfinite(voltajePotenciometro) &&
+      lecturaPotenciometro >= 0 && lecturaPotenciometro <= 4095 &&
+      voltajePotenciometro >= 0.0f && voltajePotenciometro <= 3.3f;
 
-  mostrarHistorialEnPantalla(32);
-
-  display.display();
-}
-
-void mostrarEstadoPot() {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.println("POTENCIOMETRO");
-  display.println("------------------");
-  display.print("ADC: ");
-  display.println(lecturaPotenciometro);
-  display.print("Voltaje: ");
-  display.print(voltajePotenciometro);
-  display.println(" V");
-
-  mostrarHistorialEnPantalla(32);
-
-  display.display();
-}
-
-void mostrarEstadoDHT() {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.println("SENSOR DHT");
-  display.println("------------------");
-  if (isnan(temperatura) || isnan(humedad)) {
-    display.println("Error de lectura");
-  } else {
-    display.print("Temperatura: ");
-    display.print(temperatura);
-    display.println(" C");
-    display.print("Humedad: ");
-    display.print(humedad);
-    display.println(" %");
-  }
-
-  mostrarHistorialEnPantalla(32);
-
-  display.display();
+  EstadoActuadores estado;
+  estado.ledVerde = estadoLedVerde;
+  estado.ledAzul = estadoLedAzul;
+  estado.automatico = modoAutomatico;
+  estado.umbralV = umbral;
+  estado.lineaBaseV = lineaBase;
+  Pantalla::actualizar(mediciones, estado, millis());
 }
 
 // ======================================================
@@ -374,6 +315,7 @@ void procesarMensajesTelegram(int cantidadMensajes) {
   for (int i = 0; i < cantidadMensajes; i++) {
     String chat_id = bot.messages[i].chat_id;
     String texto = bot.messages[i].text;
+    bool envioExitoso = false;
 
     Serial.println("Mensaje recibido desde Telegram:");
     Serial.println(texto);
@@ -401,7 +343,7 @@ void procesarMensajesTelegram(int cantidadMensajes) {
     }
     // ENVIO MANUAL A THINGSPEAK
     else if (texto == "/thingup") {
-      enviarDatosThingSpeak();
+      envioExitoso = enviarDatosThingSpeak();
       bot.sendMessage(
         chat_id,
         "Se realizo el intento de envio de datos a ThingSpeak. Revise el Monitor Serie para conocer el resultado.",
@@ -461,20 +403,21 @@ void procesarMensajesTelegram(int cantidadMensajes) {
       }
     }
     else if (texto == "/displayled") {
-      mostrarEstadoLed();
+      Pantalla::seleccionarVista(VistaPantalla::Leds);
       bot.sendMessage(chat_id, "Estado de los LEDs mostrado en OLED.", "");
     }
     else if (texto == "/displaypot") {
-      mostrarEstadoPot();
+      Pantalla::seleccionarVista(VistaPantalla::Potenciometro);
       bot.sendMessage(chat_id, "Estado del potenciometro mostrado en OLED.", "");
     }
     else if (texto == "/displaydht") {
-      mostrarEstadoDHT();
+      Pantalla::seleccionarVista(VistaPantalla::Dht);
       bot.sendMessage(chat_id, "Estado del DHT mostrado en OLED.", "");
     }
     // COMANDO DESCONOCIDO
     else {
 
+      if (texto.startsWith("/display")) Pantalla::mostrarErrorComando(texto);
       bot.sendMessage(chat_id, "Comando no reconocido.", "");
 
     }
@@ -488,34 +431,20 @@ void procesarMensajesTelegram(int cantidadMensajes) {
       texto == "/autooff" ||
       texto == "/ledverdeon" ||
       texto == "/ledverdeoff" ||
-      texto == "/ledazulon" ||
-      texto == "/ledazuloff" ||
+      (texto == "/ledazulon" && !modoAutomatico) ||
+      (texto == "/ledazuloff" && !modoAutomatico) ||
       texto == "/displayled" ||
       texto == "/displaypot" ||
       texto == "/displaydht" ||
-      texto == "/thingup" ||
+      (texto == "/thingup" && envioExitoso) ||
       (texto.startsWith("/umbral ") &&
       texto.substring(8).toFloat() >= 1.0 &&
       texto.substring(8).toFloat() <= 1.5)
     ) {
 
-      guardarComando(texto);
-
-      // Actualizamos la pantalla correspondiente
-      if (texto == "/displayled") {
-        mostrarEstadoLed();
-      }
-      else if (texto == "/displaypot") {
-        mostrarEstadoPot();
-      }
-      else if (texto == "/displaydht") {
-        mostrarEstadoDHT();
-      }
-      else {
-        mostrarHistorialComandos();
-      }
-
+      Pantalla::registrarComandoExitoso(texto);
     }
+    actualizarPantalla();
   }
 }
 
@@ -541,65 +470,22 @@ void consultarTelegram() {
   */
 }
 
-// HISTORIAL DE LOS ULTIMOS 3 COMANDOS
-void guardarComando(String comando) {
-
-  // Desplazamos los comandos anteriores
-  historialComandos[2] = historialComandos[1];
-  historialComandos[1] = historialComandos[0];
-
-  // Guardamos el nuevo comando
-  historialComandos[0] = comando;
-}
-
-// MOSTRAR HISTORIAL EN OLED
-void mostrarHistorialComandos() {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-
-  display.println("ULTIMOS COMANDOS");
-  display.println("------------------");
-
-  for (int i = 0; i < 3; i++) {
-    display.print(i + 1);
-    display.print(". ");
-    display.println(historialComandos[i]);
-  }
-
-  display.display();
-}
-
-
-// MOSTRAR HISTORIAL EN UNA POSICION DEL OLED
-void mostrarHistorialEnPantalla(int posicionY) {
-  display.setCursor(0, posicionY);
-  display.println("------------");
-
-  for (int i = 0; i < 3; i++) {
-    display.setCursor(0, posicionY + 8 + (i * 8));
-    display.print(i + 1);
-    display.print(". ");
-    display.println(historialComandos[i]);
-  }
-}
-
-
 // ======================================================
 // ENVIO DE DATOS A THINGSPEAK
 // ======================================================
 
-void enviarDatosThingSpeak() {
+bool enviarDatosThingSpeak() {
 
   // Verificamos que el WiFi este conectado
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("Error: WiFi desconectado.");
-    return;
+    return false;
   }
 
   // Verificamos que las mediciones sean validas
   if (isnan(temperatura) || isnan(humedad)) {
     Serial.println("Error: datos del DHT11 invalidos.");
-    return;
+    return false;
   }
 
   // Creamos el cliente HTTP
@@ -621,11 +507,13 @@ void enviarDatosThingSpeak() {
 
   // Realizamos la solicitud GET
   int codigoRespuesta = http.GET();
+  bool enviado = false;
   if (codigoRespuesta > 0) {
     String respuesta = http.getString();
     Serial.print("Respuesta ThingSpeak: ");
     Serial.println(respuesta);
-    if (respuesta.toInt() > 0) {
+    if (codigoRespuesta >= 200 && codigoRespuesta < 300 && respuesta.toInt() > 0) {
+      enviado = true;
       Serial.println("Datos enviados correctamente.");
     } else {
       Serial.println("ThingSpeak no registro los datos.");
@@ -639,6 +527,7 @@ void enviarDatosThingSpeak() {
   http.end();
   // Actualizamos el tiempo del ultimo intento
   tiempoUltimoEnvioThingSpeak = millis();
+  return enviado;
 }
 
 

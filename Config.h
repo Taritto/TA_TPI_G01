@@ -1,6 +1,7 @@
 #pragma once
 
-// Subconjunto OLED del contrato comun. Consolidar con el coordinador al integrar.
+// Configuracion compartida de Pantalla. Agregar aqui los valores de otros
+// modulos al integrarlos, conservando una sola definicion de cada constante.
 constexpr int OLED_SDA = 21;
 constexpr int OLED_SCL = 22;
 constexpr int OLED_ANCHO = 128;
