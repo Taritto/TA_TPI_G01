@@ -16,18 +16,13 @@
 #include <UniversalTelegramBot.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include <math.h>
+#include "Actuadores.h"
 
 // ======================================================
 // PROTOTIPOS DE FUNCIONES (para evitar errores de scope)
 // ======================================================
 void conectarWiFi();
-void encenderLedVerde();
-void apagarLedVerde();
-void encenderLedAzul();
-void apagarLedAzul();
-void activarModoAutomatico();
-void desactivarModoAutomatico();
-void controlarModoAutomatico();
 void procesarComandoSerie();
 void mostrarEstadoLed();
 void mostrarEstadoPot();
@@ -45,10 +40,6 @@ void consultarTelegram();
 
 // Potenciometro
 #define POT_PIN 32
-
-// LEDs
-#define LED_VERDE 23
-#define LED_AZUL 2
 
 // Display OLED
 #define SCREEN_WIDTH 128
@@ -74,15 +65,7 @@ float humedad = 0.0;
 
 int lecturaPotenciometro = 0;
 float voltajePotenciometro = 0.0;
-
-// Variables de control de actuadores
-bool estadoLedVerde = false;
-bool estadoLedAzul = false;
-
-bool modoAutomatico = false;
-
-float umbral = 0.5;
-float lineaBase = 0.0;
+Mediciones medicionesActuadores;
 
 // Red WiFi
 const char* WIFI_SSID = "Fibertel WiFi458 2.4GHz";
@@ -113,11 +96,7 @@ const unsigned long INTERVALO_THINGSPEAK = 20000;
 void setup() {
   Serial.begin(115200);
 
-  pinMode(LED_VERDE, OUTPUT);
-  pinMode(LED_AZUL, OUTPUT);
-
-  digitalWrite(LED_VERDE, LOW);
-  digitalWrite(LED_AZUL, LOW);
+  Actuadores::iniciar();
 
   dht.begin();
   Wire.begin(OLED_SDA, OLED_SCL);
@@ -178,6 +157,8 @@ void loop() {
   lecturaPotenciometro = analogRead(POT_PIN);
   int voltajeMilivoltios = analogReadMilliVolts(POT_PIN);
   voltajePotenciometro = voltajeMilivoltios / 1000.0;
+  medicionesActuadores.potenciometroV = voltajePotenciometro;
+  medicionesActuadores.potenciometroValido = isfinite(voltajePotenciometro);
 
   Serial.print("Lectura ADC: ");
   Serial.println(lecturaPotenciometro);
@@ -189,72 +170,13 @@ void loop() {
   procesarComandoSerie();
 
   // CONTROL AUTOMATICO
-  controlarModoAutomatico();
+  Actuadores::actualizar(medicionesActuadores);
 
   // CONSULTAR TELEGRAM
   consultarTelegram();
 
   Serial.println("--------------------------------");
   delay(1000);
-}
-
-// ======================================================
-// FUNCIONES DE CONTROL DE LEDS
-// ======================================================
-
-void encenderLedVerde() {
-  estadoLedVerde = true;
-  digitalWrite(LED_VERDE, HIGH);
-  Serial.println("LED VERDE: ENCENDIDO");
-}
-
-void apagarLedVerde() {
-  estadoLedVerde = false;
-  digitalWrite(LED_VERDE, LOW);
-  Serial.println("LED VERDE: APAGADO");
-}
-
-void encenderLedAzul() {
-  estadoLedAzul = true;
-  digitalWrite(LED_AZUL, HIGH);
-  Serial.println("LED AZUL: ENCENDIDO");
-}
-
-void apagarLedAzul() {
-  estadoLedAzul = false;
-  digitalWrite(LED_AZUL, LOW);
-  Serial.println("LED AZUL: APAGADO");
-}
-
-// ======================================================
-// FUNCIONES DE MODO AUTOMATICO
-// ======================================================
-
-void activarModoAutomatico() {
-  modoAutomatico = true;
-  lineaBase = voltajePotenciometro;
-
-  Serial.println("MODO AUTOMATICO ACTIVADO");
-  Serial.print("Linea base: ");
-  Serial.print(lineaBase);
-  Serial.println(" V");
-}
-
-void desactivarModoAutomatico() {
-  modoAutomatico = false;
-  apagarLedAzul();
-  Serial.println("MODO AUTOMATICO DESACTIVADO");
-}
-
-void controlarModoAutomatico() {
-  if (modoAutomatico) {
-    float limite = lineaBase + umbral;
-    if (voltajePotenciometro > limite) {
-      encenderLedAzul();
-    } else {
-      apagarLedAzul();
-    }
-  }
 }
 
 // ======================================================
@@ -266,17 +188,20 @@ void procesarComandoSerie() {
     String comando = Serial.readStringUntil('\n');
     comando.trim();
     if (comando == "ledverdeon") {
-      encenderLedVerde();
+      Actuadores::fijarLedVerde(true);
+      Serial.println("LED VERDE: ENCENDIDO");
     } else if (comando == "ledverdeoff") {
-      apagarLedVerde();
+      Actuadores::fijarLedVerde(false);
+      Serial.println("LED VERDE: APAGADO");
     } else if (comando == "ledazulon") {
-      encenderLedAzul();
+      Serial.println(Actuadores::fijarLedAzulManual(true) ? "LED AZUL: ENCENDIDO" : "LED azul bajo control automatico");
     } else if (comando == "ledazuloff") {
-      apagarLedAzul();
+      Serial.println(Actuadores::fijarLedAzulManual(false) ? "LED AZUL: APAGADO" : "LED azul bajo control automatico");
     } else if (comando == "autoon") {
-      activarModoAutomatico();
+      Serial.println(Actuadores::activarAutomatico(voltajePotenciometro) ? "MODO AUTOMATICO ACTIVADO" : "No se pudo activar: voltaje invalido");
     } else if (comando == "autooff") {
-      desactivarModoAutomatico();
+      Actuadores::desactivarAutomatico();
+      Serial.println("MODO AUTOMATICO DESACTIVADO");
     } else if (comando == "displayled") {
       mostrarEstadoLed();
     } else if (comando == "displaypot") {
@@ -299,9 +224,10 @@ void mostrarEstadoLed() {
   display.println("ESTADO DE LOS LEDS");
   display.println("------------------");
   display.print("LED Verde: ");
-  display.println(estadoLedVerde ? "ON" : "OFF");
+  EstadoActuadores estado = Actuadores::obtenerEstado();
+  display.println(estado.ledVerde ? "ON" : "OFF");
   display.print("LED Azul: ");
-  display.println(estadoLedAzul ? "ON" : "OFF");
+  display.println(estado.ledAzul ? "ON" : "OFF");
 
   mostrarHistorialEnPantalla(32);
 
@@ -374,6 +300,7 @@ void procesarMensajesTelegram(int cantidadMensajes) {
   for (int i = 0; i < cantidadMensajes; i++) {
     String chat_id = bot.messages[i].chat_id;
     String texto = bot.messages[i].text;
+    EstadoActuadores estadoActuadores = Actuadores::obtenerEstado();
 
     Serial.println("Mensaje recibido desde Telegram:");
     Serial.println(texto);
@@ -410,24 +337,22 @@ void procesarMensajesTelegram(int cantidadMensajes) {
 
     }
     else if (texto == "/ledverdeon") {
-      encenderLedVerde();
+      Actuadores::fijarLedVerde(true);
       bot.sendMessage(chat_id, "LED verde encendido.", "");
     }
     else if (texto == "/ledverdeoff") {
-      apagarLedVerde();
+      Actuadores::fijarLedVerde(false);
       bot.sendMessage(chat_id, "LED verde apagado.", "");
     }
     else if (texto == "/ledazulon") {
-      if (!modoAutomatico) {
-        encenderLedAzul();
+      if (Actuadores::fijarLedAzulManual(true)) {
         bot.sendMessage(chat_id, "LED azul encendido.", "");
       } else {
         bot.sendMessage(chat_id, "Desactive el modo automatico con /autooff para controlar manualmente el LED azul.", "");
       }
     }
     else if (texto == "/ledazuloff") {
-      if (!modoAutomatico) {
-        apagarLedAzul();
+      if (Actuadores::fijarLedAzulManual(false)) {
         bot.sendMessage(chat_id, "LED azul apagado.", "");
       } else {
         bot.sendMessage(chat_id, "El LED azul esta siendo controlado por el modo automatico. Utilice /autooff para desactivarlo.", "");
@@ -438,24 +363,22 @@ void procesarMensajesTelegram(int cantidadMensajes) {
       respuesta += "Temperatura: " + String(temperatura) + " C\n";
       respuesta += "Humedad: " + String(humedad) + " %\n";
       respuesta += "Potenciometro: " + String(voltajePotenciometro) + " V\n";
-      respuesta += "LED Verde: " + String(estadoLedVerde ? "ENCENDIDO" : "APAGADO") + "\n";
-      respuesta += "LED Azul: " + String(estadoLedAzul ? "ENCENDIDO" : "APAGADO") + "\n";
-      respuesta += "Modo: " + String(modoAutomatico ? "AUTOMATICO" : "MANUAL");
+      respuesta += "LED Verde: " + String(estadoActuadores.ledVerde ? "ENCENDIDO" : "APAGADO") + "\n";
+      respuesta += "LED Azul: " + String(estadoActuadores.ledAzul ? "ENCENDIDO" : "APAGADO") + "\n";
+      respuesta += "Modo: " + String(estadoActuadores.automatico ? "AUTOMATICO" : "MANUAL");
       bot.sendMessage(chat_id, respuesta, "");
     }
     else if (texto == "/autoon") {
-      activarModoAutomatico();
-      bot.sendMessage(chat_id, "Modo automatico activado correctamente.", "");
+      bot.sendMessage(chat_id, Actuadores::activarAutomatico(voltajePotenciometro) ? "Modo automatico activado correctamente." : "No se pudo activar el modo automatico: voltaje invalido.", "");
     }
     else if (texto == "/autooff") {
-      desactivarModoAutomatico();
+      Actuadores::desactivarAutomatico();
       bot.sendMessage(chat_id, "Modo manual activado correctamente.", "");
     }
     else if (texto.startsWith("/umbral ")) {
       float nuevoUmbral = texto.substring(8).toFloat();
-      if (nuevoUmbral >= 1.0 && nuevoUmbral <= 1.5) {
-        umbral = nuevoUmbral;
-        bot.sendMessage(chat_id, "Umbral actualizado: " + String(umbral, 2) + " V", "");
+      if (Actuadores::configurarUmbral(nuevoUmbral)) {
+        bot.sendMessage(chat_id, "Umbral actualizado: " + String(nuevoUmbral, 2) + " V", "");
       } else {
         bot.sendMessage(chat_id, "Valor invalido. El umbral debe estar entre 1 y 1.5 V.", "");
       }
