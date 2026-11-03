@@ -5,4 +5,6 @@
 namespace Telegram {
   void iniciar(const char* token);
   void actualizar(const Mediciones& mediciones, unsigned long ahoraMs);
+  bool enviarAlerta(const String& mensaje);
+  bool hayChatRegistrado();
 }
