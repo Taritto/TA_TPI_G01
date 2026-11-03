@@ -64,20 +64,23 @@ void actualizar(const Mediciones& mediciones, unsigned long ahoraMs) {
 
      // Envío de la respuesta generada con teclado de botones interactivos
       if (resultado.respuesta.length() > 0) {
-        if (texto == "/start") {
-          // Matriz JSON de botones organizados por filas
-          String tecladoJson = "["
-            "[\"/estado\", \";/ping\"],"
-            "[\"/ledverdeon\", \"/ledverdeoff\"],"
-            "[\"/ledazulon\", \"/ledazuloff\"],"
-            "[\"/autoon\", \"/autooff\"],"
-            "[\"/displayled\", \"/displaypot\", \"/displaydht\"],"
-            "[\"/thingup\"]"
-          "]";
+                if (texto == "/start") {
+          // Matriz de botones
+          String tecladoJson = "{"
+            "\"keyboard\": ["
+              "[\"/estado\", \"/ping\"],"
+              "[\"/ledverdeon\", \"/ledverdeoff\"],"
+              "[\"/ledazulon\", \"/ledazuloff\"],"
+              "[\"/autoon\", \"/autooff\"],"
+              "[\"/displayled\", \"/displaypot\", \"/displaydht\"],"
+              "[\"/thingup\"]"
+            "],"
+            "\"resize_keyboard\": true,"
+            "\"is_persistent\": true,"
+            "\"input_field_placeholder\": \"⛔ Seleccione una opción abajo\""
+          "}";
 
-          // Envía la respuesta junto al teclado interactivo
-          // Parámetros: (chatId, texto, parseMode, keyboardJson, resizeKeyboard = true, oneTimeKeyboard = false)
-          bot->sendMessageWithReplyKeyboard(chatId, resultado.respuesta, "", tecladoJson, true, false);
+          bot->sendMessageWithReplyKeyboard(chatId, resultado.respuesta, "", tecladoJson, false, false);
         } else {
           bot->sendMessage(chatId, resultado.respuesta, "");
         }
