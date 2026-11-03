@@ -10,12 +10,12 @@ namespace {
   UniversalTelegramBot* bot = nullptr;
 
   unsigned long ultimaConsultaMs = 0;
-  const unsigned long INTERVALO_TELEGRAM_MS = 300; // Reducido para mayor agilidad
+  const unsigned long INTERVALO_TELEGRAM_MS = 50; // Agilidad máxima
   const int MAX_MENSAJES_POR_CICLO = 5;
 
   String chatIdDestino = ""; // Almacena el chat activo para enviar alertas push
 
-  enum class MenuNivel { Principal, Monitoreo, Leds, Auto, Oled };
+  enum class MenuNivel { Principal, Monitoreo, Leds, Auto, Oled, Ayuda };
   MenuNivel menuActual = MenuNivel::Principal;
 
   String generarTecladoJson(MenuNivel nivel) {
@@ -24,7 +24,8 @@ namespace {
     if (nivel == MenuNivel::Principal) {
       return "["
         "[\"📋 Monitoreo General\", \"💡 Control de LEDs\"],"
-        "[\"⚙️ Modo Automático\", \"🖥️ Pantalla OLED\"]"
+        "[\"⚙️ Modo Automático\", \"🖥️ Pantalla OLED\"],"
+        "[\"📖 Guía de Comandos\"]"
       "]";
     }
     else if (nivel == MenuNivel::Monitoreo) {
@@ -63,6 +64,12 @@ namespace {
         "[\"🔙 Menú Principal\"]"
       "]";
     }
+    else if (nivel == MenuNivel::Ayuda) {
+      return "["
+        "[\"🔙 Menú Principal\"]"
+      "]";
+    }
+
     return "[]";
   }
 }
@@ -76,7 +83,13 @@ void iniciar(const char* token) {
   if (bot != nullptr) {
     delete bot;
   }
+
+  // 1. Crear el objeto en memoria
   bot = new UniversalTelegramBot(token, clienteTelegram);
+
+  // 2. Activar Long Polling
+  bot->longPoll = 2;
+
   ultimaConsultaMs = 0;
   chatIdDestino = "";
   menuActual = MenuNivel::Principal;
@@ -114,7 +127,6 @@ void actualizar(const Mediciones& mediciones, unsigned long ahoraMs) {
       String chatId = bot->messages[i].chat_id;
       String texto = bot->messages[i].text;
 
-      // Guarda el ID del chat para poder enviarle alertas espontáneas
       chatIdDestino = chatId;
 
       // Navegación de menús
@@ -132,6 +144,9 @@ void actualizar(const Mediciones& mediciones, unsigned long ahoraMs) {
       }
       else if (texto == "🖥️ Pantalla OLED") {
         menuActual = MenuNivel::Oled;
+      }
+      else if (texto == "📖 Guía de Comandos" || texto == "/ayuda" || texto == "/help") {
+        menuActual = MenuNivel::Ayuda;
       }
 
       // Ejecución lógica

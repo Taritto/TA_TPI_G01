@@ -1,9 +1,10 @@
 # Archivos de credenciales privadas
 Secretos.h
 
-# Archivos generados por PlatformIO
+# Archivos generados por PlatformIO y VS Code
 .pio/
 .vscode/
+compile_commands.json
 
 # Binarios y temporales
 *.bin

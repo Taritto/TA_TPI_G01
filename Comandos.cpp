@@ -15,8 +15,8 @@ ResultadoComando ejecutar(const String& texto,
   String cmd = texto;
   cmd.trim();
 
-  // Si proviene de Serie sin '/', se le antepone
-  if (cmd.length() > 0 && !cmd.startsWith("/") && !cmd.startsWith("🔙") && !cmd.startsWith("📋") && !cmd.startsWith("💡") && !cmd.startsWith("⚙️") && !cmd.startsWith("🖥️")) {
+  // Solo si proviene del Monitor Serie sin '/', se le antepone para unificar el análisis
+  if (origen == OrigenComando::Serie && cmd.length() > 0 && !cmd.startsWith("/")) {
     cmd = "/" + cmd;
   }
 
@@ -50,6 +50,27 @@ ResultadoComando ejecutar(const String& texto,
     resultado.reconocido = true;
     resultado.ejecutado = false;
     resultado.respuesta = "El LED azul se controla automáticamente por potenciómetro. Para control manual, desactive el modo automático en ⚙️ Modo Automático.";
+  }
+    else if (cmd == "📖 Guía de Comandos" || cmd == "/ayuda" || cmd == "/help") {
+    resultado.reconocido = true;
+    resultado.ejecutado = true;
+    resultado.respuesta =
+      "📖 GUÍA EXPLICATIVA DE COMANDOS\n\n"
+      "📋 MONITOREO:\n"
+      "• /estado: Muestra temperatura, humedad, voltaje y estado de LEDs.\n"
+      "• /ping: Verifica conectividad rápida con la placa.\n"
+      "• /thingup: Sube las mediciones actuales a la nube de ThingSpeak.\n"
+      "• /umbral <val>: Fija la diferencia de voltaje para el modo automático (1.0 a 1.5 V).\n\n"
+      "💡 CONTROL DE LEDS:\n"
+      "• /ledverdeon / /ledverdeoff: Enciende o apaga el LED verde manualmente.\n"
+      "• /ledazulon / /ledazuloff: Controla el LED azul (bloqueado en modo automático).\n\n"
+      "⚙️ MODO AUTOMÁTICO:\n"
+      "• /autoon: Toma el voltaje actual como línea base y activa el control automático del LED azul por umbral.\n"
+      "• /autooff: Vuelve a control manual y apaga el LED azul.\n\n"
+      "🖥️ PANTALLA OLED:\n"
+      "• /displayled: Muestra estado de los LEDs en el display.\n"
+      "• /displaypot: Muestra lectura ADC y voltaje en el display.\n"
+      "• /displaydht: Muestra temperatura y humedad en el display.";
   }
 
   // --- COMANDOS GENERALES ---
@@ -247,8 +268,8 @@ ResultadoComando ejecutar(const String& texto,
     resultado.respuesta = "Comando no reconocido. Toque 🔙 Menú Principal para ver las opciones.";
   }
 
-  // Historial OLED: solo comandos operativos de Telegram exitosos (no navegación ni consultas vacías)
-  if (origen == OrigenComando::Telegram && resultado.ejecutado && !cmd.startsWith("🔙") && !cmd.startsWith("📋") && !cmd.startsWith("💡") && !cmd.startsWith("⚙️") && !cmd.startsWith("🖥️")) {
+  // Historial OLED: solo comandos operativos de Telegram exitosos (que empiezan con '/')
+  if (origen == OrigenComando::Telegram && resultado.ejecutado && cmd.startsWith("/") && cmd != "/start" && cmd != "/menu" && cmd != "/ayuda" && cmd != "/help") {
     Pantalla::registrarComandoExitoso(cmd);
   }
 
