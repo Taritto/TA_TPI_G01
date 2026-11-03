@@ -1,23 +1,79 @@
 #include "Telegram.h"
 #include "Comandos.h"
 #include "Conectividad.h"
+#include "Actuadores.h"
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
 
 namespace {
-  // Objetos privados al archivo (encapsulados)
   WiFiClientSecure clienteTelegram;
   UniversalTelegramBot* bot = nullptr;
 
   unsigned long ultimaConsultaMs = 0;
   const unsigned long INTERVALO_TELEGRAM_MS = 1000;
-  const int MAX_MENSAJES_POR_CICLO = 5; // Evita que una avalancha de mensajes bloquee el loop()
+  const int MAX_MENSAJES_POR_CICLO = 5;
+
+  enum class MenuNivel { Principal, Monitoreo, Leds, Auto, Oled };
+  MenuNivel menuActual = MenuNivel::Principal;
+
+  // Constructor dinámico del teclado según el submenú y el estado de actuadores
+  String generarTecladoJson(MenuNivel nivel) {
+    EstadoActuadores estado = Actuadores::obtenerEstado();
+
+    if (nivel == MenuNivel::Principal) {
+      return "["
+        "[\"📋 Monitoreo General\", \"💡 Control de LEDs\"],"
+        "[\"⚙️ Modo Automático\", \"🖥️ Pantalla OLED\"]"
+      "]";
+    }
+    else if (nivel == MenuNivel::Monitoreo) {
+      return "["
+        "[\"/estado\", \"/ping\"],"
+        "[\"/thingup\"],"
+        "[\"🔙 Menú Principal\"]"
+      "]";
+    }
+    else if (nivel == MenuNivel::Leds) {
+      // Si está encendido ofrece apagar; si está apagado ofrece encender
+      String botonVerde = estado.ledVerde ? "\"/ledverdeoff\"" : "\"/ledverdeon\"";
+
+      String botonAzul;
+      if (estado.automatico) {
+        botonAzul = "\"(LED Azul en Modo Automático)\"";
+      } else {
+        botonAzul = estado.ledAzul ? "\"/ledazuloff\"" : "\"/ledazulon\"";
+      }
+
+      return "["
+        "[" + botonVerde + "],"
+        "[" + botonAzul + "],"
+        "[\"🔙 Menú Principal\"]"
+      "]";
+    }
+    else if (nivel == MenuNivel::Auto) {
+      // Si está en automático ofrece desactivar; si está en manual ofrece activar
+      String botonAuto = estado.automatico ? "\"/autooff\"" : "\"/autoon\"";
+
+      return "["
+        "[" + botonAuto + "],"
+        "[\"🔙 Menú Principal\"]"
+      "]";
+    }
+    else if (nivel == MenuNivel::Oled) {
+      return "["
+        "[\"/displayled\", \"/displaypot\"],"
+        "[\"/displaydht\"],"
+        "[\"🔙 Menú Principal\"]"
+      "]";
+    }
+
+    return "[]";
+  }
 }
 
 namespace Telegram {
 
 void iniciar(const char* token) {
-  // Desactiva validación estricta de certificados CA para el entorno embebido
   clienteTelegram.setInsecure();
 
   if (bot != nullptr) {
@@ -25,6 +81,7 @@ void iniciar(const char* token) {
   }
   bot = new UniversalTelegramBot(token, clienteTelegram);
   ultimaConsultaMs = 0;
+  menuActual = MenuNivel::Principal;
 }
 
 void actualizar(const Mediciones& mediciones, unsigned long ahoraMs) {
@@ -32,28 +89,41 @@ void actualizar(const Mediciones& mediciones, unsigned long ahoraMs) {
     return;
   }
 
-  // 1. Verificación de enlace Wi-Fi antes de abrir conexiones de socket seguro
   if (!Conectividad::estaConectado()) {
     return;
   }
 
-  // 2. Control de tiempo no bloqueante
   if (ahoraMs - ultimaConsultaMs < INTERVALO_TELEGRAM_MS) {
     return;
   }
   ultimaConsultaMs = ahoraMs;
 
-  // 3. Sondeo de nuevos mensajes avanzando el ID recibido
   int cantidadMensajes = bot->getUpdates(bot->last_message_received + 1);
-
-  // 4. Procesamiento acotado por vuelta
   int mensajesProcesados = 0;
+
   while (cantidadMensajes > 0 && mensajesProcesados < MAX_MENSAJES_POR_CICLO) {
     for (int i = 0; i < cantidadMensajes; i++) {
       String chatId = bot->messages[i].chat_id;
       String texto = bot->messages[i].text;
 
-      // Delegación de la orden al módulo Comandos
+      // 1. Detección de navegación entre submenús
+      if (texto == "/start" || texto == "🔙 Menú Principal" || texto == "/menu") {
+        menuActual = MenuNivel::Principal;
+      }
+      else if (texto == "📋 Monitoreo General") {
+        menuActual = MenuNivel::Monitoreo;
+      }
+      else if (texto == "💡 Control de LEDs") {
+        menuActual = MenuNivel::Leds;
+      }
+      else if (texto == "⚙️ Modo Automático") {
+        menuActual = MenuNivel::Auto;
+      }
+      else if (texto == "🖥️ Pantalla OLED") {
+        menuActual = MenuNivel::Oled;
+      }
+
+      // 2. Ejecución lógica
       ResultadoComando resultado = Comandos::ejecutar(
         texto,
         OrigenComando::Telegram,
@@ -61,35 +131,15 @@ void actualizar(const Mediciones& mediciones, unsigned long ahoraMs) {
         ahoraMs
       );
 
-
-     // Envío de la respuesta generada con teclado de botones interactivos
+      // 3. Envío de respuesta con el teclado dinámico del submenú actual
       if (resultado.respuesta.length() > 0) {
-                if (texto == "/start") {
-          // Matriz de botones
-          String tecladoJson = "{"
-            "\"keyboard\": ["
-              "[\"/estado\", \"/ping\"],"
-              "[\"/ledverdeon\", \"/ledverdeoff\"],"
-              "[\"/ledazulon\", \"/ledazuloff\"],"
-              "[\"/autoon\", \"/autooff\"],"
-              "[\"/displayled\", \"/displaypot\", \"/displaydht\"],"
-              "[\"/thingup\"]"
-            "],"
-            "\"resize_keyboard\": true,"
-            "\"is_persistent\": true,"
-            "\"input_field_placeholder\": \"⛔ Seleccione una opción abajo\""
-          "}";
-
-          bot->sendMessageWithReplyKeyboard(chatId, resultado.respuesta, "", tecladoJson, false, false);
-        } else {
-          bot->sendMessage(chatId, resultado.respuesta, "");
-        }
+        String teclado = generarTecladoJson(menuActual);
+        bot->sendMessageWithReplyKeyboard(chatId, resultado.respuesta, "", teclado, true, false);
       }
 
       mensajesProcesados++;
     }
 
-    // Consulta si quedaron mensajes pendientes solo si no superamos el límite del ciclo
     if (mensajesProcesados < MAX_MENSAJES_POR_CICLO) {
       cantidadMensajes = bot->getUpdates(bot->last_message_received + 1);
     } else {
