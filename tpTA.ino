@@ -6,12 +6,11 @@
 #include "Comandos.h"
 #include "Telegram.h"
 
-// Credenciales (En Wokwi usa "Wokwi-GUEST" y ""; en tu casa usa tu SSID y Password)
-const char* WIFI_SSID = "Wokwi-GUEST";
-const char* WIFI_PASS = "";
+#include "Secretos.h"
 
-// Coloca aquí tu Bot Token real de Telegram
-const char* BOT_TOKEN = "8825844790:AAEsbBG_NFcK8RbW7YoFKOskZ4UgYIXNVVQ";
+const char* WIFI_SSID = WIFI_SSID_LOCAL;
+const char* WIFI_PASS = WIFI_PASS_LOCAL;
+const char* BOT_TOKEN = BOT_TOKEN_LOCAL;
 
 Mediciones mediciones;
 

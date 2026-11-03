@@ -10,7 +10,7 @@ namespace {
   UniversalTelegramBot* bot = nullptr;
 
   unsigned long ultimaConsultaMs = 0;
-  const unsigned long INTERVALO_TELEGRAM_MS = 1000;
+  const unsigned long INTERVALO_TELEGRAM_MS = 500;
   const int MAX_MENSAJES_POR_CICLO = 5;
 
   enum class MenuNivel { Principal, Monitoreo, Leds, Auto, Oled };
