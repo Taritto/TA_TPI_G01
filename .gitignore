@@ -1,0 +1,6 @@
+.pio/
+.vscode/
+include/Secretos.h
+*.bin
+*.elf
+lib/Configuracion/src/Secretos.h

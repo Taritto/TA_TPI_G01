@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "author": "TA_TPI_G01",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-dht22", "id": "dht", "top": -80, "left": 240, "attrs": { "temperature": "24", "humidity": "45" } },
+    { "type": "wokwi-potentiometer", "id": "pot", "top": 80, "left": 250, "attrs": { "value": "0" } },
+    { "type": "wokwi-ssd1306", "id": "oled", "top": -40, "left": 430, "attrs": { "i2cAddress": "0x3c" } },
+    { "type": "wokwi-led", "id": "led-green", "top": 190, "left": 250, "attrs": { "color": "green" } },
+    { "type": "wokwi-resistor", "id": "res-green", "top": 190, "left": 330, "attrs": { "value": "220" } },
+    { "type": "wokwi-led", "id": "led-blue", "top": 240, "left": 250, "attrs": { "color": "blue" } },
+    { "type": "wokwi-resistor", "id": "res-blue", "top": 240, "left": 330, "attrs": { "value": "220" } }
+  ],
+  "connections": [
+    [ "esp:3V3", "dht:VCC", "red", [] ],
+    [ "esp:GND.1", "dht:GND", "black", [] ],
+    [ "esp:33", "dht:SDA", "green", [] ],
+    [ "esp:3V3", "pot:VCC", "red", [] ],
+    [ "esp:GND.1", "pot:GND", "black", [] ],
+    [ "esp:32", "pot:SIG", "orange", [] ],
+    [ "esp:3V3", "oled:VCC", "red", [] ],
+    [ "esp:GND.1", "oled:GND", "black", [] ],
+    [ "esp:21", "oled:SDA", "blue", [] ],
+    [ "esp:22", "oled:SCL", "yellow", [] ],
+    [ "esp:23", "led-green:A", "green", [] ],
+    [ "led-green:C", "res-green:1", "green", [] ],
+    [ "res-green:2", "esp:GND.1", "black", [] ],
+    [ "esp:2", "led-blue:A", "blue", [] ],
+    [ "led-blue:C", "res-blue:1", "blue", [] ],
+    [ "res-blue:2", "esp:GND.1", "black", [] ]
+  ],
+  "dependencies": {}
+}

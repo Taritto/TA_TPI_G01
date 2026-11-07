@@ -24,3 +24,25 @@ struct EstadoActuadores {
 };
 
 enum class VistaPantalla { Inicio, Leds, Potenciometro, Dht, Error };
+enum class OrigenComando { Telegram, Serie };
+enum class EstadoEnvio {
+  NoCorresponde,
+  Enviado,
+  SinWifi,
+  DatosInvalidos,
+  IntervaloNoCumplido,
+  ErrorHttp,
+  RechazadoServidor
+};
+
+struct ResultadoEnvio {
+  EstadoEnvio estado = EstadoEnvio::NoCorresponde;
+  int codigoHttp = 0;
+  long idRegistro = 0;
+};
+
+struct ResultadoComando {
+  bool reconocido = false;
+  bool ejecutado = false;
+  String respuesta;
+};
