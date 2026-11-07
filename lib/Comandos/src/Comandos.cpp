@@ -24,7 +24,34 @@ ResultadoComando ejecutar(const String& texto,
   if (cmd == "/start" || cmd == "🔙 Menú Principal" || cmd == "/menu") {
     resultado.reconocido = true;
     resultado.ejecutado = true;
-    resultado.respuesta = "🤖 SISTEMA ESP32 - Menú Principal\nSeleccione una categoría:";
+    resultado.respuesta =
+      "🤖 ESP32 | Comandos disponibles\n"
+      "\n"
+      "COMANDO GENEREALES\n"
+      "📊 /estado — Ver sensores y estado de LEDs.\n"
+      "🏓 /ping — Comprobar que la placa responde.\n"
+      "☁️ /thingup — Enviar mediciones a ThingSpeak.\n"
+      "📏 /umbral <1.0 a 1.5> — Ajustar umbral automático.\n"
+      "\n"
+      "CONTROL DE LEDS\n"
+      "🟢 /ledverdeon — Encender LED verde.\n"
+      "⚫ /ledverdeoff — Apagar LED verde.\n"
+      "🔵 /ledazulon — Encender LED azul en modo manual.\n"
+      "⚫ /ledazuloff — Apagar LED azul en modo manual.\n"
+      "🤖 /autoon — Activar control automático del LED azul.\n"
+      "🖐️ /autooff — Volver al control manual.\n"
+      "\n"
+      "DISPLAY OLED\n"
+      "🖥️ /displayled — Ver LEDs en la pantalla OLED.\n"
+      "🎚️ /displaypot — Ver potenciómetro en la pantalla OLED.\n"
+      "🌡️ /displaydht — Ver temperatura y humedad en la OLED.\n"
+      "\n"
+      "📋 /monitoreo — Abrir opciones de monitoreo.\n"
+      "💡 /leds — Abrir controles de LEDs.\n"
+      "⚙️ /auto — Abrir configuración automática.\n"
+      "🖥️ /oled — Abrir opciones de pantalla OLED.\n"
+      "📖 /ayuda — Ver guía detallada.\n"
+      "🏠 /menu — Volver al menú principal.";
   }
   else if (cmd == "📋 Monitoreo General" || cmd == "/monitoreo") {
     resultado.reconocido = true;
@@ -55,22 +82,26 @@ ResultadoComando ejecutar(const String& texto,
     resultado.reconocido = true;
     resultado.ejecutado = true;
     resultado.respuesta =
-      "📖 GUÍA EXPLICATIVA DE COMANDOS\n\n"
-      "📋 MONITOREO:\n"
-      "• /estado: Muestra temperatura, humedad, voltaje y estado de LEDs.\n"
-      "• /ping: Verifica conectividad rápida con la placa.\n"
-      "• /thingup: Sube las mediciones actuales a la nube de ThingSpeak.\n"
-      "• /umbral <val>: Fija la diferencia de voltaje para el modo automático (1.0 a 1.5 V).\n\n"
-      "💡 CONTROL DE LEDS:\n"
-      "• /ledverdeon / /ledverdeoff: Enciende o apaga el LED verde manualmente.\n"
-      "• /ledazulon / /ledazuloff: Controla el LED azul (bloqueado en modo automático).\n\n"
-      "⚙️ MODO AUTOMÁTICO:\n"
-      "• /autoon: Toma el voltaje actual como línea base y activa el control automático del LED azul por umbral.\n"
-      "• /autooff: Vuelve a control manual y apaga el LED azul.\n\n"
-      "🖥️ PANTALLA OLED:\n"
-      "• /displayled: Muestra estado de los LEDs en el display.\n"
-      "• /displaypot: Muestra lectura ADC y voltaje en el display.\n"
-      "• /displaydht: Muestra temperatura y humedad en el display.";
+      "📖 Guía de comandos\n"
+      "📊 /estado — Temperatura, humedad, voltaje y LEDs.\n"
+      "🏓 /ping — Comprueba conectividad con la placa.\n"
+      "☁️ /thingup — Publica las mediciones en ThingSpeak.\n"
+      "📏 /umbral <1.0 a 1.5> — Configura el umbral automático en voltios.\n"
+      "🟢 /ledverdeon — Enciende el LED verde.\n"
+      "⚫ /ledverdeoff — Apaga el LED verde.\n"
+      "🔵 /ledazulon — Enciende el LED azul si el modo es manual.\n"
+      "⚫ /ledazuloff — Apaga el LED azul si el modo es manual.\n"
+      "🤖 /autoon — Activa el control automático y toma el voltaje actual como base.\n"
+      "🖐️ /autooff — Desactiva el modo automático y vuelve al control manual.\n"
+      "🖥️ /displayled — Muestra el estado de LEDs en la OLED.\n"
+      "🎚️ /displaypot — Muestra lectura ADC y voltaje en la OLED.\n"
+      "🌡️ /displaydht — Muestra temperatura y humedad en la OLED.\n"
+      "📋 /monitoreo — Abre el submenú de monitoreo.\n"
+      "💡 /leds — Abre el submenú de LEDs.\n"
+      "⚙️ /auto — Abre el submenú automático.\n"
+      "🖥️ /oled — Abre el submenú de la pantalla.\n"
+      "📖 /ayuda — Muestra esta guía.\n"
+      "🏠 /menu — Vuelve al menú principal.";
   }
 
   // --- COMANDOS GENERALES ---

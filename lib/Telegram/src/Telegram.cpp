@@ -2,6 +2,7 @@
 #include "Comandos.h"
 #include "Conectividad.h"
 #include "Actuadores.h"
+#include "Pantalla.h"
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
 
@@ -23,23 +24,23 @@ namespace {
 
     if (nivel == MenuNivel::Principal) {
       return "["
-        "[\"📋 Monitoreo General\", \"💡 Control de LEDs\"],"
-        "[\"⚙️ Modo Automático\", \"🖥️ Pantalla OLED\"],"
-        "[\"📖 Guía de Comandos\"]"
+        "[\"/monitoreo\", \"/leds\"],"
+        "[\"/auto\", \"/oled\"],"
+        "[\"/ayuda\"]"
       "]";
     }
     else if (nivel == MenuNivel::Monitoreo) {
       return "["
         "[\"/estado\", \"/ping\"],"
         "[\"/thingup\"],"
-        "[\"🔙 Menú Principal\"]"
+        "[\"/menu\"]"
       "]";
     }
     else if (nivel == MenuNivel::Leds) {
       String botonVerde = estado.ledVerde ? "\"/ledverdeoff\"" : "\"/ledverdeon\"";
       String botonAzul;
       if (estado.automatico) {
-        botonAzul = "\"(LED Azul en Modo Automático)\"";
+        botonAzul = "\"/ledazulon\"";
       } else {
         botonAzul = estado.ledAzul ? "\"/ledazuloff\"" : "\"/ledazulon\"";
       }
@@ -47,26 +48,26 @@ namespace {
       return "["
         "[" + botonVerde + "],"
         "[" + botonAzul + "],"
-        "[\"🔙 Menú Principal\"]"
+        "[\"/menu\"]"
       "]";
     }
     else if (nivel == MenuNivel::Auto) {
       String botonAuto = estado.automatico ? "\"/autooff\"" : "\"/autoon\"";
       return "["
         "[" + botonAuto + "],"
-        "[\"🔙 Menú Principal\"]"
+        "[\"/menu\"]"
       "]";
     }
     else if (nivel == MenuNivel::Oled) {
       return "["
         "[\"/displayled\", \"/displaypot\"],"
         "[\"/displaydht\"],"
-        "[\"🔙 Menú Principal\"]"
+        "[\"/menu\"]"
       "]";
     }
     else if (nivel == MenuNivel::Ayuda) {
       return "["
-        "[\"🔙 Menú Principal\"]"
+        "[\"/menu\"]"
       "]";
     }
 
@@ -87,8 +88,9 @@ void iniciar(const char* token) {
   // 1. Crear el objeto en memoria
   bot = new UniversalTelegramBot(token, clienteTelegram);
 
-  // 2. Activar Long Polling
-  bot->longPoll = 2;
+  // La consulta ya se repite cada 50 ms; long polling agregaría hasta 2 s
+  // de espera antes de que la placa procese el comando recibido.
+  bot->longPoll = 0;
 
   ultimaConsultaMs = 0;
   chatIdDestino = "";
@@ -130,22 +132,22 @@ void actualizar(const Mediciones& mediciones, unsigned long ahoraMs) {
       chatIdDestino = chatId;
 
       // Navegación de menús
-      if (texto == "/start" || texto == "🔙 Menú Principal" || texto == "/menu") {
+      if (texto == "/start" || texto == "/menu") {
         menuActual = MenuNivel::Principal;
       }
-      else if (texto == "📋 Monitoreo General") {
+      else if (texto == "/monitoreo") {
         menuActual = MenuNivel::Monitoreo;
       }
-      else if (texto == "💡 Control de LEDs") {
+      else if (texto == "/leds") {
         menuActual = MenuNivel::Leds;
       }
-      else if (texto == "⚙️ Modo Automático") {
+      else if (texto == "/auto") {
         menuActual = MenuNivel::Auto;
       }
-      else if (texto == "🖥️ Pantalla OLED") {
+      else if (texto == "/oled") {
         menuActual = MenuNivel::Oled;
       }
-      else if (texto == "📖 Guía de Comandos" || texto == "/ayuda" || texto == "/help") {
+      else if (texto == "/ayuda" || texto == "/help") {
         menuActual = MenuNivel::Ayuda;
       }
 
@@ -156,6 +158,10 @@ void actualizar(const Mediciones& mediciones, unsigned long ahoraMs) {
         mediciones,
         ahoraMs
       );
+
+      // Refrescar la OLED antes de la respuesta HTTP a Telegram, que puede
+      // bloquear por la latencia de red aunque el comando ya esté ejecutado.
+      Pantalla::actualizar(mediciones, Actuadores::obtenerEstado(), millis());
 
       // Respuesta con el teclado del submenú
       if (resultado.respuesta.length() > 0) {
