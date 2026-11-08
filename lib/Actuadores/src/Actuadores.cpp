@@ -8,6 +8,7 @@
 namespace Actuadores {
 namespace {
   EstadoActuadores estado;
+  bool umbralConfigurado = false;
 
   bool voltajeValido(float voltajeV) {
     return isfinite(voltajeV) && voltajeV >= 0.0f && voltajeV <= 3.3f;
@@ -32,6 +33,7 @@ void iniciar() {
   estado.automatico = false;
   estado.lineaBaseV = 0.0f;
   estado.umbralV = 0.5f;
+  umbralConfigurado = false;
   escribirLedVerde(false);
   escribirLedAzul(false);
 }
@@ -50,9 +52,12 @@ bool fijarLedAzulManual(bool encendido) {
 bool activarAutomatico(float voltajeActualV) {
   if (!voltajeValido(voltajeActualV)) return false;
 
-  estado.lineaBaseV = voltajeActualV;
+  estado.lineaBaseV = 0.0f;
+  if (!umbralConfigurado) {
+    estado.umbralV = voltajeActualV;
+  }
   estado.automatico = true;
-  escribirLedAzul(voltajeActualV > estado.lineaBaseV + estado.umbralV);
+  escribirLedAzul(voltajeActualV > estado.umbralV);
   return true;
 }
 
@@ -64,10 +69,12 @@ void desactivarAutomatico() {
 bool configurarUmbral(float valorV) {
   if (!isfinite(valorV) || valorV < UMBRAL_MIN_V || valorV > UMBRAL_MAX_V) {
     estado.umbralV = UMBRAL_DEFECTO_V;
+    umbralConfigurado = false;
     return false;
   }
 
   estado.umbralV = valorV;
+  umbralConfigurado = true;
   return true;
 }
 
@@ -79,7 +86,7 @@ void actualizar(const Mediciones& mediciones) {
     return;
   }
 
-  escribirLedAzul(mediciones.potenciometroV > estado.lineaBaseV + estado.umbralV);
+  escribirLedAzul(mediciones.potenciometroV > estado.umbralV);
 }
 
 EstadoActuadores obtenerEstado() {

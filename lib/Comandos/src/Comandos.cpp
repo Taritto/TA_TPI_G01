@@ -129,7 +129,7 @@ ResultadoComando ejecutar(const String& texto,
     r += "🟢 Verde: " + String(estado.ledVerde ? "ON" : "OFF") + " | 🔵 Azul: " + String(estado.ledAzul ? "ON" : "OFF") + "\n";
     r += "⚙️ Modo: " + String(estado.automatico ? "AUTOMATICO" : "MANUAL") + " | 📏 Umbral: " + String(estado.umbralV, 2) + " V";
     if (estado.automatico) {
-      r += "\n🎯 Línea Base: " + String(estado.lineaBaseV, 2) + " V";
+      r += "\n🎯 Umbral activo: " + String(estado.umbralV, 2) + " V";
     }
 
     resultado.reconocido = true;
@@ -186,7 +186,7 @@ ResultadoComando ejecutar(const String& texto,
         Actuadores::actualizar(mediciones);
         EstadoActuadores estado = Actuadores::obtenerEstado();
         resultado.ejecutado = true;
-        resultado.respuesta = "Modo automático activado. Línea base: " + String(estado.lineaBaseV, 2) + " V.";
+        resultado.respuesta = "Modo automático activado. Umbral: " + String(estado.umbralV, 2) + " V.";
       } else {
         resultado.ejecutado = false;
         resultado.respuesta = "Error: Voltaje fuera de rango.";

@@ -194,17 +194,17 @@ namespace Actuadores {
 | `iniciar()` | Ninguno | `void`. Configura GPIO, apaga LEDs y establece manual, línea base 0 y umbral 0.5 V. |
 | `fijarLedVerde(encendido)` | `true` enciende; `false` apaga | `true` si se aceptó, incluso si ya tenía ese estado. Disponible en ambos modos. |
 | `fijarLedAzulManual(encendido)` | Estado solicitado | `false` si está en automático y no cambia el LED; `true` si se acepta. |
-| `activarAutomatico(voltajeActualV)` | Lectura válida del potenciómetro en V | `true`: captura la línea base, activa automático y evalúa el LED con esa lectura. `false` ante valor no finito o fuera de 0 a 3.3 V, sin cambiar estado. |
-| `desactivarAutomatico()` | Ninguno | `void`. Vuelve a manual y apaga el azul, conservando la conducta de la base. |
-| `configurarUmbral(valorV)` | Diferencia de voltaje solicitada | `true` si pertenece a [1.0, 1.5]; en otro caso restaura 0.5 V y devuelve `false`. Rechaza también valores no finitos. |
-| `actualizar(mediciones)` | Copia de mediciones por referencia constante | `void`. Si está en automático y el potenciómetro es válido, enciende azul cuando `potenciometroV > lineaBaseV + umbralV`; en igualdad o por debajo lo apaga. Con lectura inválida apaga azul como política del proyecto. |
+| `activarAutomatico(voltajeActualV)` | Lectura válida del potenciómetro en V | `true`: activa automático y, si no hubo `/umbral` válido previamente, usa esa lectura como umbral. `false` ante valor no finito o fuera de 0 a 3.3 V, sin cambiar estado. |
+| `desactivarAutomatico()` | Ninguno | `void`. Vuelve a manual y apaga el azul, conservando la conducta existente. |
+| `configurarUmbral(valorV)` | Voltaje absoluto solicitado | `true` si pertenece a [1.0, 1.5]; en otro caso restaura 0.5 V, marca que no hay umbral configurado y devuelve `false`. Rechaza también valores no finitos. |
+| `actualizar(mediciones)` | Copia de mediciones por referencia constante | `void`. Si está en automático y el potenciómetro es válido, enciende azul cuando `potenciometroV > umbralV`; en igualdad o por debajo lo apaga. Con lectura inválida apaga azul como política del proyecto. |
 | `obtenerEstado()` | Ninguno | Devuelve por valor `EstadoActuadores`; sin efectos secundarios. |
 
 ### Decisiones y casos importantes
 
-- La fórmula `línea base + umbral` conserva la interpretación del código existente. La consigna no desarrolla toda la fórmula: validarla con la cátedra si hay dudas.
-- Cada `/autoon` aceptado captura nuevamente la lectura actual, aunque el modo ya estuviera activo.
-- Si línea base más umbral supera 3.3 V, no se modifica silenciosamente el límite: el azul no se encenderá dentro del rango normal. Informar esa situación en la documentación/defensa.
+- El umbral se interpreta como un valor absoluto. Si no se configuró mediante `/umbral`, `/autoon` toma la posición actual del potenciómetro como umbral; si ya se configuró, `/autoon` la conserva.
+- Cada `/autoon` aceptado vuelve a tomar la lectura actual como umbral solo si todavía no se configuró uno mediante `/umbral`.
+- Si el umbral supera 3.3 V, no se modifica silenciosamente el límite: el azul no se encenderá dentro del rango normal. Informar esa situación en la documentación/defensa.
 - La regla que impide control manual del azul en automático vive aquí. Debe aplicarse igual desde Telegram y desde serie.
 - Después de cambiar el umbral o el modo, el despachador llama a `actualizar(mediciones)` antes de construir respuestas de estado que necesiten reflejar ese cambio.
 - No guardar duplicados de `estadoLedAzul` o `modoAutomatico` en otros módulos.
@@ -306,7 +306,7 @@ Parámetros: texto recibido, origen de la orden, instantánea de mediciones y ti
 | `/estado` | Usar `mediciones` y consultar `Actuadores::obtenerEstado()` | Temperatura, humedad, voltaje, LEDs y modo; indicar datos inválidos |
 | `/ledverdeon`, `/ledverdeoff` | `Actuadores::fijarLedVerde(true/false)` | Confirmación |
 | `/ledazulon`, `/ledazuloff` | `Actuadores::fijarLedAzulManual(true/false)` | Confirmación o rechazo por modo automático |
-| `/autoon` | Verificar `potenciometroValido`; llamar a `activarAutomatico(potenciometroV)` | Confirmación con línea base o error |
+| `/autoon` | Verificar `potenciometroValido`; llamar a `activarAutomatico(potenciometroV)` | Confirmación con umbral activo o error |
 | `/autooff` | `Actuadores::desactivarAutomatico()` | Confirmación |
 | `/umbral <valor>` | Parsear todo el argumento como número finito; llamar a `configurarUmbral(valor)` | Confirmación o rechazo indicando restauración a 0.5 V |
 | `/thingup` | `Telemetria::enviarAhora(mediciones, ahoraMs)` | Éxito solo si devuelve `Enviado`; explicar sin Wi-Fi, espera, datos inválidos o error |
@@ -531,7 +531,7 @@ Cada pull request indica:
 - [ ] Están documentadas las versiones/dependencias que realmente se usaron para compilar.
 - [ ] Todos los comandos previstos están en la ayuda y funcionan.
 - [ ] Umbral inválido restaura 0.5 V y lo comunica.
-- [ ] El modo automático utiliza línea base y umbral, con reglas iguales desde serie y Telegram.
+- [ ] El modo automático utiliza el umbral absoluto, con reglas iguales desde serie y Telegram.
 - [ ] ThingSpeak recibe temperatura y humedad periódicamente y por `/thingup`.
 - [ ] El historial conserva tres comandos Telegram exitosos sin superponer texto.
 - [ ] `/display` desconocido informa en OLED y Telegram.
